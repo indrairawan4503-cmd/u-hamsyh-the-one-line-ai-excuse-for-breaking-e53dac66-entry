@@ -28,25 +28,39 @@ def _resolve_output_path() -> str:
     return "/output/entry.txt"
 
 
-def main() -> None:
-    line = LINE.strip()
+def validate_line(line: str) -> str:
+    """Strip and gate-check the final line; returns the validated line."""
+    line = line.strip()
     assert 1 <= len(line) <= 180, "line must be 1-180 chars, got %d" % len(line)
     assert line.strip(), "line must not be only whitespace"
     assert "\n" not in line, "line must be a single line"
-    out = _resolve_output_path()
-    parent = os.path.dirname(out)
+    return line
+
+
+def write_entry(path: str, text: str) -> None:
+    """Write `text` to `path` as UTF-8 with no trailing newline.
+
+    Creates the parent directory when needed. Raises OSError on failure;
+    callers decide whether a failure is fatal.
+    """
+    parent = os.path.dirname(path)
     if parent:
         os.makedirs(parent, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+
+def main() -> None:
+    line = validate_line(LINE)
+    out = _resolve_output_path()
     # Write /output/entry.txt FIRST: this is the graded artifact.
-    with open(out, "w", encoding="utf-8") as f:
-        f.write(line)
+    write_entry(out, line)
     # Best-effort convenience copy next to this script (repo root).
     # The grader sandbox mounts the repo read-only, so this write may fail;
     # it must never crash the run.
     try:
         here = os.path.dirname(os.path.abspath(__file__))
-        with open(os.path.join(here, "entry.txt"), "w", encoding="utf-8") as f:
-            f.write(line)
+        write_entry(os.path.join(here, "entry.txt"), line)
     except OSError:
         pass
     print("%d chars: %s" % (len(line), line))
